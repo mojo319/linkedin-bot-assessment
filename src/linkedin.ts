@@ -77,9 +77,12 @@ async function conversationRows(page: Page) {
       const signature = clean((row as HTMLElement).innerText || row.textContent || '');
       const classes = [row, ...Array.from(row.querySelectorAll('[class]'))].map(e => e.className).join(' ');
       const unread = /--unread(?:\s|$)/.test(classes) || !!row.querySelector('[class*="unread"], [aria-label*="unread" i]');
+      // LinkedIn sometimes clears unread as soon as automation opens a row. A
+      // time-only preview is a same-day signal; old conversations usually show dates.
+      const fresh = /\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/i.test(signature) || /\bActive now\b/i.test(signature);
       const group = !!row.querySelector('.msg-conversation-listitem__group-icon, .msg-conversation-card__group-icon, [aria-label*="group conversation" i]');
       const sponsored = /\bSponsored\b/i.test(signature) || /sponsored|spinmail/.test(classes);
-      return { url, name, signature, unread, group, sponsored };
+      return { url, name, signature, unread, fresh, group, sponsored };
     });
   }, S);
 }
@@ -102,7 +105,7 @@ export async function listThreads(page: Page, max: number): Promise<Thread[]> {
     const url = row.url || MESSAGES_URL + '#local-row-' + rowKey;
     if (seen.has(url)) continue;
     seen.add(url);
-    result.push({ url, name: row.name, signature: hash(row.signature), unread: row.unread, group: row.group, ...(rowKey ? { rowKey } : {}) });
+    result.push({ url, name: row.name, signature: hash(row.signature), unread: row.unread, fresh: row.fresh, group: row.group, ...(rowKey ? { rowKey } : {}) });
     if (result.length >= max) break;
   }
   return result;

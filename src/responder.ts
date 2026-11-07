@@ -53,6 +53,8 @@ export function ruleReply(messages: Message[], max = 500): string {
     const whatDoing = /\b(what are you doing|what(?:'re| are) you up to|what are you working on)\b/i.test(text);
     const whatDoYouDo = /\b(what do you do|what is your job|what(?:'s| is) your role)\b/i.test(text);
     const availability = /\b(available|availability|schedule|meeting|meet|call|free at|free on)\b/i.test(text);
+    const quickChat = /\b(open to|up for|available for).{0,20}\b(chat|quick chat|conversation)\b|\bquick chat\b/i.test(text);
+    const projects = /\b(what kind of projects|what projects|which projects|projects do you|work on|working on)\b/i.test(text);
     const personal = /\b(salary|address|phone|birthday)\b/i.test(text);
 
     if (thanksOnly) {
@@ -65,8 +67,10 @@ export function ruleReply(messages: Message[], max = 500): string {
         if (howAreYou) parts.push('Doing well, thanks. How about you?');
         if (whatDoing) parts.push('I am catching up on messages right now.');
         if (whatDoYouDo) parts.push('I help Mohammad manage incoming LinkedIn messages.');
+        if (projects) parts.push('Mohammad mainly works on computer systems, networking, automation, and practical software projects.');
         if (whereAreYou) parts.push('I do not have Mohammad\'s location information.');
-        if (availability) parts.push('I do not have access to Mohammad\'s availability from here. Send the preferred time and timezone and he can follow up.');
+        if (quickChat) parts.push('Happy to discuss it here. If you mean a call, send a preferred time and timezone and Mohammad can confirm.');
+        else if (availability) parts.push('I do not have access to Mohammad\'s availability from here. Send the preferred time and timezone and he can follow up.');
         if (personal) parts.push('I do not have that personal information available.');
 
         if (parts.length === 0) {

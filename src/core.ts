@@ -5,7 +5,7 @@ export type Message = {
   text: string;
   attachment: boolean;
 };
-export type Thread = { url: string; name: string; signature: string; unread: boolean; group: boolean; rowKey?: string };
+export type Thread = { url: string; name: string; signature: string; unread: boolean; fresh?: boolean; group: boolean; rowKey?: string };
 export type Pending = { ids: string[]; replyHash: string; attemptedAt: number };
 export type ThreadState = {
   seen: string[];

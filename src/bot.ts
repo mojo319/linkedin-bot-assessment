@@ -203,7 +203,9 @@ export class Bot {
         const threads = await listThreads(page, this.config.maxThreads);
         const candidates = threads.filter(thread => {
           const record = this.store.state.threads[hash(thread.url)];
-          return !record || record.signature !== thread.signature || !!record.pending || thread.unread;
+          // Same-day rows stay eligible because LinkedIn may clear unread when the
+          // bot opens them before inspection finishes.
+          return !record || record.signature !== thread.signature || !!record.pending || thread.unread || thread.fresh;
         });
         // Always inspect the currently opened chat; reading removes its unread flag.
         const current = await currentThread(page, threads);
@@ -213,11 +215,33 @@ export class Bot {
           const rotating = threads[this.cursor++ % threads.length]!;
           if (!candidates.includes(rotating)) candidates.push(rotating);
         }
-        for (const thread of candidates.slice(0, 8)) {
+        // Handle fresh evaluator messages before rotating through old chats.
+        candidates.sort((a, b) => Number(!!(b.unread || b.fresh)) - Number(!!(a.unread || a.fresh)));
+        for (const thread of candidates.slice(0, 12)) {
           if (this.stopped) return;
           const unknown = !this.store.state.threads[hash(thread.url)];
-          // A newly visible but read conversation is baselined, not treated as fresh outreach.
-          await this.inspect(page, thread, unknown && !thread.unread);
+          // Old newly-virtualized rows are baselined. A same-day row is fresh even
+          // if LinkedIn cleared its unread marker while the bot opened it.
+          const baseline = unknown && !thread.unread && !thread.fresh;
+          try {
+            await this.inspect(page, thread, baseline);
+          } catch (error) {
+            if (error instanceof ActionRequired) throw error;
+            const reason = error instanceof LayoutChanged ? error.message : 'transient thread error';
+            log(`Thread scan retry name=${thread.name.slice(0, 40)}: ${reason}`);
+            await sleep(700);
+            const rescanned = await listThreads(page, this.config.maxThreads);
+            const same = rescanned.find(item => normalize(item.name).toLowerCase() === normalize(thread.name).toLowerCase());
+            if (!same) continue;
+            const retryUnknown = !this.store.state.threads[hash(same.url)];
+            const retryBaseline = retryUnknown && !same.unread && !same.fresh;
+            try {
+              await this.inspect(page, same, retryBaseline);
+            } catch (retryError) {
+              if (retryError instanceof ActionRequired) throw retryError;
+              log(`Thread scan skipped name=${same.name.slice(0, 40)} after retry; continuing with other chats.`);
+            }
+          }
         }
         errors = 0;
         if (Date.now() - lastBeat >= 30000) {
