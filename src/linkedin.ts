@@ -226,10 +226,15 @@ export async function readMessages(page: Page, config: Pick<Config, 'selfName' |
       const authorPath = authorAnchor?.getAttribute('href') ? profilePath(authorAnchor.getAttribute('href')!) : '';
       const classes = node.className + ' ' + outer.className;
       const ownClass = /(?:--from-me|--self|--outbound|--from-self)(?:\s|$)/.test(classes);
+      const otherClass = /(?:^|\s)msg-s-event-listitem--other(?:\s|$)/.test(classes);
+      const oneToOne = !!root.querySelector('.msg-s-profile-card-one-to-one, a.msg-thread__link-to-profile[href*="/in/"]');
       let from: 'self' | 'other' | 'unknown' = 'unknown';
       if (ownClass || (selfPath && authorPath === selfPath) || (author && (author.toLowerCase() === self || author === 'You'))) from = 'self';
+      // LinkedIn marks inbound direct-message events with --other. In a verified
+      // one-to-one thread this direction marker is more reliable than rendered
+      // sender-name text, which may contain wrappers/badges or be absent in bursts.
+      else if (otherClass && oneToOne) from = 'other';
       else if (author && contact && author.toLowerCase() === contact) from = 'other';
-      else if (!author && !authorPath && contact && /(?:^|\s)msg-s-event-listitem--other(?:\s|$)/.test(classes) && root.querySelector('.msg-s-profile-card-one-to-one')) from = 'other';
       else if (/--grouped|--continuation/.test(classes) && !author && !authorPath) from = previousDirection;
       // A continuation without a known grouping marker remains unknown (fail closed).
       if (author || from !== 'unknown') {

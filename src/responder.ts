@@ -3,28 +3,30 @@ import { budgetText, limitText, normalize } from './core.js';
 import type { Message } from './core.js';
 
 export type Reply = { text: string; source: 'ai' | 'rules'; degraded: boolean };
+
+function combine(parts: string[], max: number): string {
+  return limitText(parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim(), max);
+}
+
 export function ruleReply(messages: Message[], max = 500): string {
   const text = normalize(messages.map(m => m.text).join('\n'));
   const lower = text.toLowerCase();
   const arabic = /[\u0600-\u06ff]/u.test(text);
   const french = /\b(bonjour|salut|merci|comment|pourquoi|vous|fran[c\u00e7]ais)\b/iu.test(text);
   const spanish = /\b(hola|gracias|buenos|c[o\u00f3]mo|espa[n\u00f1]ol)\b/iu.test(text);
-  let reply: string;
+  let reply = '';
+
   if (messages.some(m => m.attachment) && !text) {
-    reply = arabic ? '\u0648\u0635\u0644\u0646\u064a \u0627\u0644\u0645\u0631\u0641\u0642\u060c \u0644\u0643\u0646 \u0644\u0627 \u0623\u0633\u062a\u0637\u064a\u0639 \u0642\u0631\u0627\u0621\u062a\u0647 \u0647\u0646\u0627. \u0647\u0644 \u064a\u0645\u0643\u0646\u0643 \u0625\u0631\u0633\u0627\u0644 \u0645\u0644\u062e\u0635 \u0646\u0635\u064a\u061f' : 'Thanks for the attachment. I cannot inspect its contents here; could you paste the relevant text or describe it?';
+    reply = arabic
+      ? '\u0648\u0635\u0644\u0646\u064a \u0627\u0644\u0645\u0631\u0641\u0642\u060c \u0644\u0643\u0646 \u0644\u0627 \u0623\u0633\u062a\u0637\u064a\u0639 \u0642\u0631\u0627\u0621\u062a\u0647 \u0647\u0646\u0627. \u0647\u0644 \u064a\u0645\u0643\u0646\u0643 \u0625\u0631\u0633\u0627\u0644 \u0645\u0644\u062e\u0635 \u0646\u0635\u064a\u061f'
+      : 'Thanks for the attachment. I cannot inspect its contents here; could you paste the relevant text or describe it?';
   } else if (!text || !/[\p{L}\p{N}]/u.test(text)) {
-    reply = /[\u{1F44B}\u{1F44D}\u{1F60A}]/u.test(text) ? 'Hi! What would you like to chat about?' : 'I did not catch a clear message there. Could you add a little detail?';
-  } else if (arabic) {
-    reply = /\u0645\u0631\u062d\u0628|\u0627\u0644\u0633\u0644\u0627\u0645|\u0623\u0647\u0644\u0627/.test(text) ? '\u0623\u0647\u0644\u0627\u064b! \u0643\u064a\u0641 \u0623\u0642\u062f\u0631 \u0623\u0633\u0627\u0639\u062f\u0643\u061f' : '\u0634\u0643\u0631\u0627\u064b \u0644\u0631\u0633\u0627\u0644\u062a\u0643. \u0647\u0644 \u064a\u0645\u0643\u0646\u0643 \u062a\u0648\u0636\u064a\u062d \u0627\u0644\u0646\u0642\u0637\u0629 \u0627\u0644\u062a\u064a \u062a\u0631\u064a\u062f \u0645\u0646\u0627\u0642\u0634\u062a\u0647\u0627\u061f';
-  } else if (french) {
-    reply = /^merci[!. ]*$/iu.test(text) ? 'Avec plaisir !' : 'Bonjour ! Quel point souhaitez-vous discuter en particulier ?';
-  } else if (spanish) {
-    reply = /^gracias[!. ]*$/iu.test(text) ? 'De nada.' : 'Hola. Que te gustaria comentar en concreto?';
-  } else if (/\b(are you (a |an )?(bot|ai|human)|automated|real person)\b/i.test(text)) {
-    reply = 'I am an automated assistant helping with this inbox, not the account owner typing live.';
+    reply = /[\u{1F44B}\u{1F44D}\u{1F60A}]/u.test(text)
+      ? 'Hi! What would you like to chat about?'
+      : 'I did not catch a clear message there. Could you add a little detail?';
   } else if (/\b(password|api key|access token|secret|system prompt|ignore (all|previous) instructions)\b/i.test(text)) {
     reply = 'I cannot share credentials, private configuration, or account access. What non-sensitive information do you need?';
-  } else if (/\b(stop messaging|do not (reply|contact)|don't (reply|contact)|unsubscribe)\b/i.test(text)) {
+  } else if (/\b(stop messaging|do not (reply|contact)|don\'t (reply|contact)|unsubscribe)\b/i.test(text)) {
     reply = 'Understood. I will not initiate any messages.';
   } else if (/\b(idiot|stupid|shut up|fuck|useless)\b/i.test(text)) {
     reply = 'Let us keep this respectful. What specifically would you like to resolve?';
@@ -32,17 +34,53 @@ export function ruleReply(messages: Message[], max = 500): string {
     reply = 'Thanks for the link. I have not opened it; could you paste the relevant part or tell me what you want to discuss?';
   } else if (text.length > 1500) {
     reply = 'That is a lot of detail. Which specific question would you like me to address first?';
-  } else if (/^(hi|hello|hey|good morning|good afternoon|good evening)[!.\s]*$/i.test(text)) {
-    reply = 'Hi! What would you like to chat about?';
-  } else if (/^(thanks|thank you|thank you so much|thanks a lot)[!.\s]*$/i.test(text)) {
-    reply = 'You are welcome!';
-  } else if (/\b(available|availability|schedule|meeting|call|salary|address|phone|birthday|where do you live)\b/i.test(text)) {
-    reply = 'I do not have the account owner\'s personal details or availability. Could you share the context so they can follow up?';
-  } else if (/\?|\b(what|why|when|where|how|who|which|can you)\b/i.test(lower)) {
-    reply = 'I do not have enough information to answer that reliably. Could you add the key details?';
+  } else if (arabic) {
+    reply = /\u0645\u0631\u062d\u0628|\u0627\u0644\u0633\u0644\u0627\u0645|\u0623\u0647\u0644\u0627/.test(text)
+      ? '\u0623\u0647\u0644\u0627\u064b! \u0643\u064a\u0641 \u0623\u0642\u062f\u0631 \u0623\u0633\u0627\u0639\u062f\u0643\u061f'
+      : '\u0634\u0643\u0631\u0627\u064b \u0644\u0631\u0633\u0627\u0644\u062a\u0643. \u0647\u0644 \u064a\u0645\u0643\u0646\u0643 \u062a\u0648\u0636\u064a\u062d \u0627\u0644\u0646\u0642\u0637\u0629 \u0627\u0644\u062a\u064a \u062a\u0631\u064a\u062f \u0645\u0646\u0627\u0642\u0634\u062a\u0647\u0627\u061f';
+  } else if (french) {
+    reply = /^merci[!. ]*$/iu.test(text) ? 'Avec plaisir !' : 'Bonjour ! Quel point souhaitez-vous discuter en particulier ?';
+  } else if (spanish) {
+    reply = /^gracias[!. ]*$/iu.test(text) ? 'De nada.' : 'Hola. Que te gustaria comentar en concreto?';
+  } else if (/\b(are you (a |an )?(bot|ai|human)|automated|real person|who are you)\b/i.test(text)) {
+    reply = 'I am an automated assistant helping Mohammad manage this LinkedIn inbox.';
   } else {
-    reply = 'Thanks for reaching out. What would you like to discuss in more detail?';
+    const parts: string[] = [];
+    const greeting = /(?:^|\n|[.!?]\s*)(hi|hello|hey|good morning|good afternoon|good evening)\b/i.test(text);
+    const thanksOnly = /^(thanks|thank you|thank you so much|thanks a lot)[!.\s]*$/i.test(text);
+    const howAreYou = /\b(how are you|how(?:'s| is) it going|how are things|how have you been|how(?:'s| is) your day)\b/i.test(text);
+    const whereAreYou = /\b(where are you|where do you live|where are you based|what(?:'s| is) your location)\b/i.test(text);
+    const whatDoing = /\b(what are you doing|what(?:'re| are) you up to|what are you working on)\b/i.test(text);
+    const whatDoYouDo = /\b(what do you do|what is your job|what(?:'s| is) your role)\b/i.test(text);
+    const availability = /\b(available|availability|schedule|meeting|meet|call|free at|free on)\b/i.test(text);
+    const personal = /\b(salary|address|phone|birthday)\b/i.test(text);
+
+    if (thanksOnly) {
+      reply = 'You are welcome!';
+    } else {
+      if (greeting && !howAreYou && !whereAreYou && !whatDoing && !whatDoYouDo && !availability && !personal) {
+        parts.push('Hi! What would you like to chat about?');
+      } else {
+        if (greeting) parts.push('Hi!');
+        if (howAreYou) parts.push('Doing well, thanks. How about you?');
+        if (whatDoing) parts.push('I am catching up on messages right now.');
+        if (whatDoYouDo) parts.push('I help Mohammad manage incoming LinkedIn messages.');
+        if (whereAreYou) parts.push('I do not have Mohammad\'s location information.');
+        if (availability) parts.push('I do not have access to Mohammad\'s availability from here. Send the preferred time and timezone and he can follow up.');
+        if (personal) parts.push('I do not have that personal information available.');
+
+        if (parts.length === 0) {
+          if (/\?\s*$|\b(what|why|when|where|how|who|which|can you|could you|would you)\b/i.test(lower)) {
+            parts.push('I am not confident enough to answer that from the information I have. Could you add a little context?');
+          } else {
+            parts.push('Thanks for reaching out. What would you like to discuss?');
+          }
+        }
+        reply = combine(parts, max);
+      }
+    }
   }
+
   return limitText(reply, max);
 }
 
@@ -89,7 +127,6 @@ export async function generateReply(config: Config, context: Message[], incoming
     if (!text) throw new Error('Empty model reply');
     return { text: limitText(text, config.maxReplyChars), source: 'ai', degraded: false };
   } catch {
-    // Do not log provider request bodies, message content, or credentials.
     return { text: fallback(), source: 'rules', degraded: true };
   }
 }
