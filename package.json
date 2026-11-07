@@ -1,0 +1,31 @@
+{
+  "name": "linkedin-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Local, reply-only LinkedIn assessment assistant",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "npm run build --silent && node dist/src/index.js",
+    "login": "npm run build --silent && node dist/src/index.js login",
+    "check": "npm run build --silent && node dist/src/index.js check",
+    "ai-check": "npm run build --silent && node dist/src/index.js ai-check",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build --silent && node --test dist/tests/core.test.js",
+    "test:browser": "npm run build --silent && node --test dist/tests/browser.test.js",
+    "test:invitations": "npm run build --silent && node --test dist/tests/invitations-repair.test.js",
+    "test:messaging": "npm run build --silent && node --test dist/tests/messaging-repair.test.js"
+  },
+  "dependencies": {
+    "playwright": "^1.56.1",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "tsx": "^4.20.6",
+    "@types/node": "^24.10.0"
+  }
+}
